@@ -1,9 +1,8 @@
-import pandas as pd
 import random
+
+import pandas as pd
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
-import time
-import threading
 
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
     client_id="3e900ce8ebd74e61b1a67b75e1339d25",
@@ -47,14 +46,12 @@ class SongGame:
 
         if tracks:
             uri = tracks[0]['uri']
-            sp.start_playback(uris=[uri])
+            try:
+                sp.start_playback(uris=[uri])
+            except spotipy.exceptions.SpotifyException:
+                print("No active Spotify device found. Please open Spotify first!")
         else:
             print("Track not found on Spotify")
-
-        try:
-            sp.start_playback(uris=[uri])
-        except spotipy.exceptions.SpotifyException:
-            print("No active Spotify device found. Please open Spotify first!")
 
     def ask_user_unknown_from_known(self, lookupRow):
         known = self.get_field(lookupRow[0])
