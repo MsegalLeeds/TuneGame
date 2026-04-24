@@ -127,16 +127,19 @@ class SongGame:
                 self.award_points(correct = False)
         else:
             print(question)
-            while True:
+            allowed_attempts = 3
+            attempts = 0
+            while attempts <= allowed_attempts:
                 guess = input("Your answer: ")
                 if self.is_close_match(guess, correct):
                     if guess.strip().lower() != correct.strip().lower():
-                        print("Close enough. The correct answer is {correct}")
+                        print(f"Close enough. The correct answer is {correct}")
                     self.award_points(correct = True)
                     sp.pause_playback()
                     break
                 else:
                     print(f" Close, Try again!")
+                    attempts += 1
 
     def print_summary(self):
         print(f"\n {'=' * 30}")
@@ -146,15 +149,15 @@ class SongGame:
         print(f"\n Best Streak: {self.streak}")
         print(f"\n {'=' * 30}")
 
+if __name__ == "__main__":
+    NUM_ROUNDS = 5
 
-NUM_ROUNDS = 5
+    game = SongGame()
 
-game = SongGame()
+    for _ in range(NUM_ROUNDS):
+        game.row = game.sample_row()
+        lookupRow = random.choice(game.lookup)
+        use_mc = random.choice([True, False])
+        game.ask_question(lookupRow, multiple_choices=use_mc)
 
-for _ in range(NUM_ROUNDS):
-    game.row = game.sample_row()
-    lookupRow = random.choice(game.lookup)
-    use_mc = random.choice([True, False])
-    game.ask_question(lookupRow, multiple_choices=use_mc)
-
-game.print_summary()
+    game.print_summary()
