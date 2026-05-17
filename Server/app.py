@@ -16,7 +16,9 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "tunegame-secret")
-CORS(app, supports_credentials=True)
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SECURE'] = False
+CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
 
 SCORES_FILE = "scores.json"
 TIME_LIMIT = 120        # seconds to answer before time's up
@@ -273,4 +275,4 @@ def post_score():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host='127.0.0.1', port=5000)
