@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TuneGame</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #141414;
+      --surface2: #1e1e1e;
+      --border: rgba(255,255,255,0.08);
+      --text: #f0f0f0;
+      --muted: #888;
+      --green: #1DB954;
+      --green-dim: rgba(29,185,84,0.15);
+      --red: #e24b4a;
+      --red-dim: rgba(226,75,74,0.15);
+      --amber: #f59e0b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 48px;
+      letter-spacing: 0.05em;
+      color: var(--green);
+      text-align: center;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .tagline {
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 32px;
+    }
+
+    /* ── screens ── */
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    /* ── start screen ── */
+    .start-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .mode-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+
+    .mode-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .mode-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      color: var(--muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+
+    .mode-btn.active {
+      background: var(--green-dim);
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    .start-btn {
+      background: var(--green);
+      color: #000;
+      border: none;
+      border-radius: 12px;
+      padding: 16px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 22px;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      margin-top: 8px;
+    }
+
+    .start-btn:hover { opacity: 0.9; }
+    .start-btn:active { transform: scale(0.98); }
+
+    /* ── stats bar ── */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      text-align: center;
+    }
+
+    .stat-val {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 26px;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .stat-lbl {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 2px;
+    }
+
+    .lives-dots {
+      display: flex;
+      justify-content: center;
+      gap: 5px;
+      margin-bottom: 2px;
+    }
+
+    .life-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--red);
+      transition: background 0.3s;
+    }
+
+    .life-dot.lost { background: var(--surface2); border: 1px solid var(--border); }
+
+    /* ── timer ── */
+    .timer-track {
+      height: 3px;
+      background: var(--surface2);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+
+    .timer-bar {
+      height: 100%;
+      background: var(--green);
+      border-radius: 2px;
+      transition: width 1s linear, background 0.5s;
+    }
+
+    /* ── album art ── */
+    .album-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      background: var(--surface2);
+    }
+
+    .album-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+
+    .album-img.loaded { display: block; }
+
+    .album-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .album-placeholder svg {
+      width: 64px;
+      height: 64px;
+      opacity: 0.2;
+    }
+
+    .now-playing {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 11px;
+      color: var(--green);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pulse {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    /* ── question ── */
+    .question-text {
+      font-size: 16px;
+      font-weight: 500;
+      line-height: 1.5;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+
+    /* ── choices ── */
+    .choices {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .choice-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 13px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      width: 100%;
+      text-align: left;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .choice-btn:hover:not(:disabled) {
+      border-color: rgba(255,255,255,0.2);
+      background: var(--surface2);
+    }
+
+    .choice-btn:disabled { cursor: default; }
+
+    .choice-btn.correct {
+      background: var(--green-dim);
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    .choice-btn.wrong {
+      background: var(--red-dim);
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    .choice-key {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      background: var(--surface2);
+      border-radius: 5px;
+      padding: 2px 7px;
+      flex-shrink: 0;
+    }
+
+    .choice-btn.correct .choice-key {
+      background: rgba(29,185,84,0.3);
+      color: var(--green);
+    }
+
+    .choice-btn.wrong .choice-key {
+      background: rgba(226,75,74,0.3);
+      color: var(--red);
+    }
+
+    /* ── typed input ── */
+    .typed-wrap {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .typed-input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 13px 16px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .typed-input:focus { border-color: var(--green); }
+
+    .submit-btn {
+      background: var(--green);
+      color: #000;
+      border: none;
+      border-radius: 12px;
+      padding: 13px 20px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+
+    .submit-btn:hover { opacity: 0.85; }
+
+    /* ── result banner ── */
+    .result-banner {
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-top: 12px;
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .result-banner.show { display: flex; }
+    .result-banner.correct { background: var(--green-dim); border: 1px solid var(--green); }
+    .result-banner.wrong { background: var(--red-dim); border: 1px solid var(--red); }
+    .result-banner.timeout { background: rgba(245,158,11,0.12); border: 1px solid var(--amber); }
+
+    .result-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 20px;
+      letter-spacing: 0.05em;
+    }
+
+    .result-banner.correct .result-title { color: var(--green); }
+    .result-banner.wrong .result-title { color: var(--red); }
+    .result-banner.timeout .result-title { color: var(--amber); }
+
+    .result-sub { font-size: 12px; color: var(--muted); }
+
+    .next-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      margin-top: 10px;
+      transition: background 0.15s;
+      width: 100%;
+      display: none;
+    }
+
+    .next-btn.show { display: block; }
+    .next-btn:hover { background: var(--surface2); }
+
+    /* ── game over ── */
+    .gameover-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+    }
+
+    .gameover-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .gameover-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 42px;
+      letter-spacing: 0.05em;
+      color: var(--red);
+      line-height: 1;
+    }
+
+    .gameover-score {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 64px;
+      color: var(--green);
+      line-height: 1;
+      margin: 4px 0;
+    }
+
+    .gameover-sub { font-size: 13px; color: var(--muted); }
+
+    .leaderboard-title {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+
+    .lb-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .lb-rank {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 16px;
+      color: var(--muted);
+      width: 20px;
+      text-align: center;
+    }
+
+    .lb-rank.gold { color: var(--amber); }
+    .lb-name { flex: 1; color: var(--text); }
+    .lb-pts { font-weight: 600; color: var(--green); font-size: 13px; }
+    .lb-pts.dim { color: var(--muted); font-weight: 400; }
+
+    .lb-row.highlight { background: var(--green-dim); border-radius: 8px; padding: 9px 8px; border-color: transparent; }
+
+    .save-row {
+      display: flex;
+      gap: 8px;
+      margin: 16px 0;
+    }
+
+    .save-input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 11px 14px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .save-input:focus { border-color: var(--green); }
+
+    .save-btn {
+      background: var(--green);
+      color: #000;
+      border: none;
+      border-radius: 10px;
+      padding: 11px 18px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .play-again-btn {
+      width: 100%;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      color: var(--muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .play-again-btn:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+
+    .error-msg {
+      font-size: 12px;
+      color: var(--red);
+      text-align: center;
+      margin-top: 8px;
+      min-height: 16px;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .fade-in { animation: fadeIn 0.25s ease forwards; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <div class="logo">TuneGame</div>
+  <div class="tagline">how well do you know your classic rock?</div>
+
+  <!-- ── START SCREEN ── -->
+  <div class="screen active" id="screen-start">
+    <div class="start-card">
+      <div>
+        <div class="mode-label">question mode</div>
+        <div class="mode-toggle">
+          <button class="mode-btn active" id="btn-mc" onclick="setMode('mc')">multiple choice</button>
+          <button class="mode-btn" id="btn-typed" onclick="setMode('typed')">typed answer</button>
+        </div>
+      </div>
+      <div>
+        <div class="mode-label">playback</div>
+        <div class="mode-toggle">
+          <button class="mode-btn active" id="btn-clip" onclick="setClip(true)">clip (30s)</button>
+          <button class="mode-btn" id="btn-full" onclick="setClip(false)">full song</button>
+        </div>
+      </div>
+      <button class="start-btn" onclick="startGame()">play</button>
+      <div class="error-msg" id="start-error"></div>
+    </div>
+  </div>
+
+  <!-- ── GAME SCREEN ── -->
+  <div class="screen" id="screen-game">
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-val" id="stat-score">0</div>
+        <div class="stat-lbl">score</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="stat-streak">0</div>
+        <div class="stat-lbl">streak</div>
+      </div>
+      <div class="stat-card">
+        <div class="lives-dots" id="lives-dots"></div>
+        <div class="stat-lbl">lives</div>
+      </div>
+    </div>
+
+    <div class="timer-track">
+      <div class="timer-bar" id="timer-bar" style="width:100%"></div>
+    </div>
+
+    <div class="album-wrap">
+      <div class="album-placeholder" id="album-placeholder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5">
+          <path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/>
+        </svg>
+      </div>
+      <img class="album-img" id="album-img" alt="album art"/>
+      <div class="now-playing" id="now-playing" style="display:none">
+        <div class="pulse"></div>
+        now playing
+      </div>
+    </div>
+
+    <div class="question-text" id="question-text"></div>
+
+    <div class="choices" id="choices-wrap"></div>
+
+    <div class="typed-wrap" id="typed-wrap" style="display:none">
+      <input class="typed-input" id="typed-input" placeholder="type your answer..." onkeydown="if(event.key==='Enter') submitTyped()"/>
+      <button class="submit-btn" onclick="submitTyped()">go</button>
+    </div>
+
+    <div class="result-banner" id="result-banner">
+      <div class="result-title" id="result-title"></div>
+      <div class="result-sub" id="result-sub"></div>
+    </div>
+
+    <button class="next-btn" id="next-btn" onclick="nextQuestion()">next question →</button>
+    <div class="error-msg" id="game-error"></div>
+  </div>
+
+  <!-- ── GAME OVER SCREEN ── -->
+  <div class="screen" id="screen-gameover">
+    <div class="gameover-card">
+      <div class="gameover-header">
+        <div class="gameover-title">game over</div>
+        <div class="gameover-score" id="final-score">0</div>
+        <div class="gameover-sub" id="final-sub"></div>
+      </div>
+
+      <div class="leaderboard-title">leaderboard</div>
+      <div id="leaderboard-list"></div>
+
+      <div class="save-row">
+        <input class="save-input" id="save-name" placeholder="your name..." maxlength="20"/>
+        <button class="save-btn" onclick="saveScore()">save</button>
+      </div>
+
+      <button class="play-again-btn" onclick="playAgain()">play again</button>
+      <div class="error-msg" id="gameover-error"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const API = 'http://localhost:5000';
+
+  let mode = 'mc';
+  let clipMode = true;
+  let timeLimit = 15;
+  let timerInterval = null;
+  let timeLeft = 15;
+  let answered = false;
+  let currentScore = 0;
+  let currentQuestions = 0;
+
+  function setMode(m) {
+    mode = m;
+    document.getElementById('btn-mc').classList.toggle('active', m === 'mc');
+    document.getElementById('btn-typed').classList.toggle('active', m === 'typed');
+  }
+
+  function setClip(c) {
+    clipMode = c;
+    document.getElementById('btn-clip').classList.toggle('active', c);
+    document.getElementById('btn-full').classList.toggle('active', !c);
+  }
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  async function api(path, opts = {}) {
+    const res = await fetch(API + path, {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      ...opts,
+    });
+    return res.json();
+  }
+
+  async function startGame() {
+    document.getElementById('start-error').textContent = '';
+    try {
+      const data = await api('/new-game', { method: 'POST' });
+      if (!data.ok) throw new Error('Failed to start game');
+      timeLimit = data.time_limit || 15;
+      showScreen('screen-game');
+      await loadQuestion();
+    } catch (e) {
+      document.getElementById('start-error').textContent = 'Could not connect to server. Is Flask running?';
+    }
+  }
+
+  async function loadQuestion() {
+    answered = false;
+    clearTimer();
+    document.getElementById('result-banner').classList.remove('show', 'correct', 'wrong', 'timeout');
+    document.getElementById('next-btn').classList.remove('show');
+    document.getElementById('game-error').textContent = '';
+    document.getElementById('choices-wrap').innerHTML = '';
+    document.getElementById('typed-wrap').style.display = 'none';
+    document.getElementById('album-img').classList.remove('loaded');
+    document.getElementById('album-placeholder').style.display = 'flex';
+    document.getElementById('now-playing').style.display = 'none';
+    document.getElementById('timer-bar').style.width = '100%';
+    document.getElementById('timer-bar').style.background = 'var(--green)';
+
+    try {
+      const data = await api(`/question?mode=${mode}`);
+      if (data.error) { showGameOver(); return; }
+
+      currentScore = data.score;
+      currentQuestions = data.questions_asked;
+      updateStats(data.score, data.streak, data.lives);
+      document.getElementById('question-text').textContent = data.question;
+
+      if (data.album_art) {
+        const img = document.getElementById('album-img');
+        img.onload = () => {
+          img.classList.add('loaded');
+          document.getElementById('album-placeholder').style.display = 'none';
+        };
+        img.src = data.album_art;
+      }
+
+      await playSong();
+
+      if (data.mode === 'mc') {
+        renderChoices(data.choices);
+      } else {
+        document.getElementById('typed-wrap').style.display = 'flex';
+        document.getElementById('typed-input').value = '';
+        document.getElementById('typed-input').focus();
+      }
+
+      startTimer();
+    } catch (e) {
+      document.getElementById('game-error').textContent = 'Error loading question.';
+    }
+  }
+
+  function renderChoices(choices) {
+    const labels = ['A', 'B', 'C', 'D'];
+    const wrap = document.getElementById('choices-wrap');
+    choices.forEach((choice, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'choice-btn fade-in';
+      btn.style.animationDelay = `${i * 0.05}s`;
+      btn.innerHTML = `<span class="choice-key">${labels[i]}</span>${choice}`;
+      btn.onclick = () => submitChoice(choice, btn, choices);
+      wrap.appendChild(btn);
+    });
+  }
+
+  async function submitChoice(guess, btn, choices) {
+    if (answered) return;
+    answered = true;
+    clearTimer();
+    disableChoices();
+
+    const data = await api('/answer', {
+      method: 'POST',
+      body: JSON.stringify({ guess }),
+    });
+
+    btn.classList.add(data.correct ? 'correct' : 'wrong');
+
+    if (!data.correct) {
+      document.querySelectorAll('.choice-btn').forEach(b => {
+        if (b.textContent.trim().includes(data.correct_answer)) {
+          b.classList.add('correct');
+        }
+      });
+    }
+
+    showResult(data);
+  }
+
+  async function submitTyped() {
+    if (answered) return;
+    const guess = document.getElementById('typed-input').value.trim();
+    if (!guess) return;
+    answered = true;
+    clearTimer();
+    document.getElementById('typed-input').disabled = true;
+    document.querySelector('.submit-btn').disabled = true;
+
+    const data = await api('/answer', {
+      method: 'POST',
+      body: JSON.stringify({ guess }),
+    });
+
+    showResult(data);
+  }
+
+  function showResult(data) {
+    updateStats(data.score, data.streak, data.lives);
+    currentScore = data.score;
+    currentQuestions = data.questions_asked;
+
+    const banner = document.getElementById('result-banner');
+    const title = document.getElementById('result-title');
+    const sub = document.getElementById('result-sub');
+
+    pauseSong();
+
+    if (data.timed_out) {
+      banner.classList.add('show', 'timeout');
+      title.textContent = 'too slow!';
+      sub.textContent = `correct answer: ${data.correct_answer}`;
+    } else if (data.correct) {
+      banner.classList.add('show', 'correct');
+      title.textContent = `correct! +${data.score - currentScore + (data.score - currentScore)}pts`;
+      title.textContent = 'correct!';
+      sub.textContent = `score: ${data.score} · streak: ${data.streak}`;
+    } else {
+      banner.classList.add('show', 'wrong');
+      title.textContent = 'wrong!';
+      sub.textContent = `correct answer: ${data.correct_answer}`;
+    }
+
+    if (data.game_over) {
+      setTimeout(() => showGameOver(), 1800);
+    } else {
+      document.getElementById('next-btn').classList.add('show');
+    }
+  }
+
+  function updateStats(score, streak, lives) {
+    document.getElementById('stat-score').textContent = score;
+    document.getElementById('stat-streak').textContent = streak;
+    const dots = document.getElementById('lives-dots');
+    dots.innerHTML = '';
+    for (let i = 0; i < 3; i++) {
+      const d = document.createElement('div');
+      d.className = 'life-dot' + (i >= lives ? ' lost' : '');
+      dots.appendChild(d);
+    }
+  }
+
+  function disableChoices() {
+    document.querySelectorAll('.choice-btn').forEach(b => b.disabled = true);
+  }
+
+  function startTimer() {
+    timeLeft = timeLimit;
+    const bar = document.getElementById('timer-bar');
+    bar.style.transition = 'none';
+    bar.style.width = '100%';
+
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      const pct = Math.max(0, (timeLeft / timeLimit) * 100);
+      bar.style.transition = 'width 1s linear';
+      bar.style.width = pct + '%';
+
+      if (pct < 30) bar.style.background = 'var(--red)';
+      else if (pct < 60) bar.style.background = 'var(--amber)';
+      else bar.style.background = 'var(--green)';
+
+      if (timeLeft <= 0) {
+        clearTimer();
+        if (!answered) autoTimeout();
+      }
+    }, 1000);
+  }
+
+  function clearTimer() {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  }
+
+  async function autoTimeout() {
+    answered = true;
+    disableChoices();
+    if (document.getElementById('typed-input')) {
+      document.getElementById('typed-input').disabled = true;
+    }
+    const data = await api('/answer', {
+      method: 'POST',
+      body: JSON.stringify({ guess: '' }),
+    });
+    showResult(data);
+  }
+
+  async function playSong() {
+    try {
+      const data = await api(`/play-song?clip=${clipMode}`, { method: 'POST' });
+      if (data.ok) document.getElementById('now-playing').style.display = 'flex';
+    } catch (e) {}
+  }
+
+  async function pauseSong() {
+    try { await api('/pause', { method: 'POST' }); } catch (e) {}
+    document.getElementById('now-playing').style.display = 'none';
+  }
+
+  function nextQuestion() {
+    loadQuestion();
+  }
+
+  async function showGameOver() {
+    pauseSong();
+    showScreen('screen-gameover');
+    document.getElementById('final-score').textContent = currentScore + 'pts';
+    document.getElementById('final-sub').textContent = `${currentQuestions} question${currentQuestions !== 1 ? 's' : ''} answered`;
+    await loadLeaderboard();
+  }
+
+  async function loadLeaderboard() {
+    try {
+      const scores = await api('/scores');
+      const list = document.getElementById('leaderboard-list');
+      list.innerHTML = '';
+      if (!scores.length) {
+        list.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0">no scores yet</div>';
+        return;
+      }
+      scores.forEach((s, i) => {
+        const row = document.createElement('div');
+        row.className = 'lb-row' + (s.name === document.getElementById('save-name').value ? ' highlight' : '');
+        row.innerHTML = `
+          <div class="lb-rank ${i === 0 ? 'gold' : ''}">${i + 1}</div>
+          <div class="lb-name">${s.name}</div>
+          <div class="lb-pts ${i > 0 ? 'dim' : ''}">${s.score}pts</div>
+        `;
+        list.appendChild(row);
+      });
+    } catch (e) {}
+  }
+
+  async function saveScore() {
+    const name = document.getElementById('save-name').value.trim();
+    if (!name) { document.getElementById('gameover-error').textContent = 'Enter your name first.'; return; }
+    document.getElementById('gameover-error').textContent = '';
+    try {
+      await api('/scores', { method: 'POST', body: JSON.stringify({ name }) });
+      await loadLeaderboard();
+      document.querySelector('.save-btn').textContent = 'saved!';
+      document.querySelector('.save-btn').disabled = true;
+    } catch (e) {
+      document.getElementById('gameover-error').textContent = 'Could not save score.';
+    }
+  }
+
+  async function playAgain() {
+    showScreen('screen-start');
+    document.querySelector('.save-btn').textContent = 'save';
+    document.querySelector('.save-btn').disabled = false;
+  }
+</script>
+</body>
+</html>
