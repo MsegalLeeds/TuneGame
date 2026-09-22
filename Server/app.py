@@ -10,23 +10,25 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request, session
 from flask_cors import CORS
 
-from SongGame import SongGame, sp
+from SongGame import SongGame, get_spotify_client
 
 load_dotenv()
 
+BASE_DIR = os.path.dirname(__file__)
+SCORES_FILE = os.path.join(BASE_DIR, "scores.json")
+TIME_LIMIT = 120
+MAX_LIVES = 3
+CLIP_START_MS = 30000
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
+
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY", "tunegame-secret")
-app.config['SESSION_COOKIE_SAMESITE'] = 'None'
-app.config['SESSION_COOKIE_SECURE'] = False
-CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
+app.secret_key = os.getenv("FLASK_SECRET_KEY") or "local-development-secret"
+app.config.update(
+    SESSION_COOKIE_SAMESITE=os.getenv("SESSION_COOKIE_SAMESITE", "Lax"),
+    SESSION_COOKIE_SECURE=os.getenv("FLASK_COOKIE_SECURE", "false").lower() == "true",
+)
+CORS(app, supports_credentials=True, origins=[FRONTEND_ORIGIN])
 
-SCORES_FILE = "scores.json"
-TIME_LIMIT = 120        # seconds to answer before time's up
-MAX_LIVES = 3          # wrong answers before game over
-CLIP_START_MS = 30000  # seek to 30 seconds for clip mode
-
-
-# ── helpers ───────────────────────────────────────────────────────────────────
 
 def get_game() -> SongGame:
     game = SongGame()
@@ -45,34 +47,46 @@ def save_game(game: SongGame):
 def load_scores() -> list:
     if not os.path.exists(SCORES_FILE):
         return []
-    with open(SCORES_FILE, "r") as f:
-        return json.load(f)
+    try:
+        with open(SCORES_FILE, "r", encoding="utf-8") as f:
+            scores = json.load(f)
+        return scores if isinstance(scores, list) else []
+    except (OSError, json.JSONDecodeError):
+        return []
 
 
 def save_score(name: str, score: int, questions: int):
+    name = str(name).strip()
+    if not name:
+        raise ValueError("Name cannot be empty.")
+    if len(name) > 20:
+        raise ValueError("Name must be 20 characters or fewer.")
+
     scores = load_scores()
     scores.append({
         "name": name,
-        "score": score,
-        "questions": questions,
-        "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+        "score": int(score),
+        "questions": int(questions),
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
     })
-    scores.sort(key=lambda x: x["score"], reverse=True)
-    scores = scores[:10]
-    with open(SCORES_FILE, "w") as f:
-        json.dump(scores, f, indent=2)
+    scores.sort(key=lambda item: item["score"], reverse=True)
+
+    with open(SCORES_FILE, "w", encoding="utf-8") as f:
+        json.dump(scores[:10], f, indent=2)
 
 
-def get_album_art(song: str, artist: str) -> Optional[str]:
-    """Search Spotify and return the album art URL, or None if not found."""
+def get_album_art(song: str, artist: str, spotify=None) -> Optional[str]:
     try:
-        results = sp.search(q=f"track:{song} artist:{artist}", type="track", limit=1)
-        tracks = results["tracks"]["items"]
+        spotify = spotify or get_spotify_client()
+        results = spotify.search(
+            q=f"track:{song} artist:{artist}", type="track", limit=1
+        )
+        tracks = results.get("tracks", {}).get("items", [])
         if tracks:
-            images = tracks[0]["album"]["images"]
+            images = tracks[0].get("album", {}).get("images", [])
             if images:
-                return images[0]["url"]  # first image is highest resolution
-    except spotipy.exceptions.SpotifyException:
+                return images[0].get("url")
+    except (spotipy.exceptions.SpotifyException, RuntimeError):
         pass
     return None
 
@@ -82,70 +96,54 @@ def is_game_over() -> bool:
 
 
 def check_time_limit() -> bool:
-    """Returns True if the player is still within the time limit."""
     question_time = session.get("question_time")
-    if not question_time:
-        return True
-    return (time.time() - question_time) <= TIME_LIMIT
+    return not question_time or (time.time() - question_time) <= TIME_LIMIT
 
-
-# ── routes ────────────────────────────────────────────────────────────────────
 
 @app.route("/new-game", methods=["POST"])
 def new_game():
     session.clear()
-    session["lives"] = MAX_LIVES
-    session["score"] = 0
-    session["streak"] = 0
-    session["questions_asked"] = 0
-    return jsonify({
-        "ok": True,
-        "message": "Game reset",
-        "lives": MAX_LIVES,
-        "time_limit": TIME_LIMIT,
-    })
+    session.update(lives=MAX_LIVES, score=0, streak=0, questions_asked=0)
+    return jsonify(ok=True, message="Game reset", lives=MAX_LIVES, time_limit=TIME_LIMIT)
 
 
 @app.route("/question", methods=["GET"])
 def get_question():
     if is_game_over():
-        return jsonify({"error": "Game over. Call /new-game to start again."}), 400
+        return jsonify(error="Game over. Call /new-game to start again."), 400
 
     game = get_game()
     game.row = game.sample_row()
-    lookup_row = random.choice(game.lookup)
-    known_field, unknown_field, template = lookup_row
+    known_field, unknown_field, template = random.choice(game.lookup)
     known = game.get_field(known_field)
     correct = game.get_field(unknown_field)
-    question = game.format_questions(known, template)
-    use_mc = request.args.get("mode", "mc") == "mc"
+    use_mc = request.args.get("mode", "mc").lower() == "mc"
     song = game.get_field("Song")
     artist = game.get_field("Artist")
 
-    # fetch album art from Spotify
-    album_art = get_album_art(song, artist)
-
-    # stamp the time so /answer can check it
-    session["question_time"] = time.time()
-    session["current_correct"] = correct
-    session["current_song"] = song
-    session["current_artist"] = artist
+    session.update(
+        question_time=time.time(),
+        current_correct=correct,
+        current_song=song,
+        current_artist=artist,
+        current_mode="mc" if use_mc else "typed",
+    )
 
     response = {
-        "question": question,
+        "question": game.format_questions(known, template),
         "mode": "mc" if use_mc else "typed",
         "questions_asked": game.questions_asked,
         "score": game.score,
         "streak": game.streak,
         "lives": session.get("lives", MAX_LIVES),
         "time_limit": TIME_LIMIT,
-        "album_art": album_art,
+        "album_art": get_album_art(song, artist),
     }
 
     if use_mc:
         choices = game.generate_choices(correct, unknown_field)
         response["choices"] = choices
-        session["correct_index"] = choices.index(correct)
+        session["choices"] = choices
 
     save_game(game)
     return jsonify(response)
@@ -154,104 +152,105 @@ def get_question():
 @app.route("/answer", methods=["POST"])
 def post_answer():
     if is_game_over():
-        return jsonify({"error": "Game over. Call /new-game to start again."}), 400
+        return jsonify(error="Game over. Call /new-game to start again."), 400
 
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify(error="JSON request body required"), 400
 
     correct = session.get("current_correct")
-    if not correct:
-        return jsonify({"error": "No active question. Call /question first."}), 400
+    if correct is None:
+        return jsonify(error="No active question. Call /question first."), 400
 
-    # check time limit
+    guess = data.get("guess")
+    if not isinstance(guess, str):
+        return jsonify(error="A string 'guess' is required"), 400
+
     timed_out = not check_time_limit()
-    guess = data.get("guess", "")
     game = get_game()
 
     if timed_out:
         is_correct = False
         result_message = "Too slow!"
+    elif session.get("current_mode") == "mc":
+        choices = session.get("choices", [])
+        is_correct = guess in choices and guess == correct
+        result_message = "Correct!" if is_correct else "Wrong!"
     else:
         is_correct = game.is_close_match(guess, correct)
         result_message = "Correct!" if is_correct else "Wrong!"
 
-    # update lives
     lives = session.get("lives", MAX_LIVES)
     if not is_correct:
-        lives -= 1
+        lives = max(0, lives - 1)
         session["lives"] = lives
 
     game.questions_asked += 1
-    game.award_points(is_correct)
+    earned = game.award_points(is_correct)
     save_game(game)
-    session.pop("current_correct", None)
-    session.pop("question_time", None)
 
-    game_over = lives <= 0
+    for key in (
+        "current_correct", "current_song", "current_artist",
+        "current_mode", "choices", "question_time",
+    ):
+        session.pop(key, None)
 
-    return jsonify({
-        "correct": is_correct,
-        "correct_answer": correct,
-        "message": result_message,
-        "timed_out": timed_out,
-        "score": game.score,
-        "streak": game.streak,
-        "lives": lives,
-        "questions_asked": game.questions_asked,
-        "game_over": game_over,
-    })
+    return jsonify(
+        correct=is_correct,
+        correct_answer=correct,
+        message=result_message,
+        timed_out=timed_out,
+        points_earned=earned,
+        score=game.score,
+        streak=game.streak,
+        lives=lives,
+        questions_asked=game.questions_asked,
+        game_over=lives <= 0,
+    )
 
 
 @app.route("/play-song", methods=["POST"])
 def play_song():
     song = session.get("current_song")
     artist = session.get("current_artist")
-    clip_mode = request.args.get("clip", "true") == "true"
-
     if not song or not artist:
-        return jsonify({"error": "No active question"}), 400
+        return jsonify(error="No active question"), 400
 
-    game = get_game()
-    game.row = game.dataFrame[game.dataFrame["Song"] == song].head(1)
-
-    if game.row.empty:
-        return jsonify({"error": f"Song '{song}' not found in dataset"}), 404
+    clip_mode = request.args.get("clip", "true").lower() == "true"
 
     try:
-        results = sp.search(q=f"track:{song} artist:{artist}", type="track", limit=1)
-        tracks = results["tracks"]["items"]
-
+        spotify = get_spotify_client()
+        results = spotify.search(
+            q=f"track:{song} artist:{artist}", type="track", limit=1
+        )
+        tracks = results.get("tracks", {}).get("items", [])
         if not tracks:
-            return jsonify({"error": "Track not found on Spotify"}), 404
+            return jsonify(error="Track not found on Spotify"), 404
 
-        uri = tracks[0]["uri"]
-        sp.start_playback(uris=[uri])
-
+        spotify.start_playback(uris=[tracks[0]["uri"]])
         if clip_mode:
-            # small delay to let playback start before seeking
-            time.sleep(0.5)
-            sp.seek_track(CLIP_START_MS)
+            spotify.seek_track(CLIP_START_MS)
 
-        return jsonify({
-            "ok": True,
-            "song": song,
-            "artist": artist,
-            "clip_mode": clip_mode,
-            "seek_position_ms": CLIP_START_MS if clip_mode else 0,
-        })
-
-    except spotipy.exceptions.SpotifyException as e:
-        return jsonify({"error": "Spotify error", "detail": str(e)}), 503
+        return jsonify(
+            ok=True,
+            song=song,
+            artist=artist,
+            clip_mode=clip_mode,
+            seek_position_ms=CLIP_START_MS if clip_mode else 0,
+        )
+    except spotipy.exceptions.SpotifyException as exc:
+        return jsonify(error="Spotify error", detail=str(exc)), 503
+    except RuntimeError as exc:
+        return jsonify(error=str(exc)), 503
 
 
 @app.route("/pause", methods=["POST"])
 def pause():
     try:
-        sp.pause_playback()
-        return jsonify({"ok": True})
-    except spotipy.exceptions.SpotifyException as e:
-        return jsonify({"error": "Spotify error", "detail": str(e)}), 503
+        get_spotify_client().pause_playback()
+        return jsonify(ok=True)
+    except (spotipy.exceptions.SpotifyException, RuntimeError) as exc:
+        return jsonify(error="Spotify error", detail=str(exc)), 503
 
 
 @app.route("/scores", methods=["GET"])
@@ -261,18 +260,17 @@ def get_scores():
 
 @app.route("/scores", methods=["POST"])
 def post_score():
-    data = request.get_json()
-    if not data or "name" not in data:
-        return jsonify({"error": "A 'name' field is required"}), 400
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or "name" not in data:
+        return jsonify(error="A 'name' field is required"), 400
 
-    game = get_game()
-    save_score(
-        name=data["name"],
-        score=game.score,
-        questions=game.questions_asked,
-    )
-    return jsonify({"ok": True, "score": game.score})
+    try:
+        game = get_game()
+        save_score(data["name"], game.score, game.questions_asked)
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
+    return jsonify(ok=True, score=game.score)
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    app.run(debug=True, host="127.0.0.1", port=5000)
