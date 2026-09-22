@@ -19,6 +19,7 @@ sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
 ERROR_THRESHOLD = 0.6
 POINTS_PER_QUESTION = 10
 STREAK_BONUS = 5
+MIN_MULTIPLIER = 0.3  # slowest correct answers still keep 30% of base points
 
 CSV_PATH = os.path.join(os.path.dirname(__file__), "music.csv")
 
@@ -134,6 +135,24 @@ class SongGame:
                 else:
                     print("Close, try again!")
                     attempts += 1
+
+    def award_points(self, correct: bool, time_taken: float = None, time_limit: float = None) -> None:
+        if correct:
+            self.streak += 1
+            multiplier = 1.0
+            if time_taken is not None and time_limit:
+                fraction_left = max(0.0, 1 - (time_taken / time_limit))
+                multiplier = MIN_MULTIPLIER + (1 - MIN_MULTIPLIER) * fraction_left
+
+            base_earned = round(POINTS_PER_QUESTION * multiplier)
+            streak_earned = (self.streak - 1) * STREAK_BONUS
+            earned = base_earned + streak_earned
+            self.score += earned
+
+            bonus_msg = f" (+{streak_earned} streak bonus)" if self.streak > 1 else ""
+            print(f"Correct! +{base_earned}{bonus_msg} | Score: {self.score}")
+        else:
+            self.streak = 0
 
     def print_summary(self):
         print(f"\n{'=' * 30}")

@@ -642,7 +642,7 @@
 
   let mode = 'mc';
   let clipMode = true;
-  let timeLimit = 120;
+  let timeLimit = 30;
   let timerInterval = null;
   let timeLeft = 15;
   let answered = false;
@@ -687,7 +687,7 @@
     try {
       const data = await api('/new-game', { method: 'POST' });
       if (!data.ok) throw new Error('Failed to start game');
-      timeLimit = data.time_limit || 120;
+      timeLimit = data.time_limit || 30;
       showScreen('screen-game');
       await loadQuestion();
     } catch (e) {
@@ -708,6 +708,9 @@
     document.getElementById('now-playing').style.display = 'none';
     document.getElementById('timer-bar').style.width = '100%';
     document.getElementById('timer-bar').style.background = 'var(--green)';
+    document.getElementById('album-img').classList.remove('loaded');
+    document.getElementById('album-img').style.filter = 'blur(24px)';
+    document.getElementById('album-img').style.transition = 'none';
 
     try {
       const data = await api(`/question?mode=${mode}`);
@@ -722,6 +725,7 @@
         const img = document.getElementById('album-img');
         img.onload = () => {
           img.classList.add('loaded');
+          img.style.filter = 'blur(24px)'
           document.getElementById('album-placeholder').style.display = 'none';
         };
         img.src = data.album_art;
@@ -806,6 +810,8 @@
   }
 
   function showResult(data) {
+    document.getElementById('album-img').style.transition = 'filter 0.5s ease';
+    document.getElementById('album-img').style.filter = 'blur(0px)';
     updateStats(data.score, data.streak, data.lives);
     currentScore = data.score;
     currentQuestions = data.questions_asked;
@@ -857,15 +863,21 @@
   function startTimer() {
     timeLeft = timeLimit;
     const bar = document.getElementById('timer-bar');
+    const img = document.getElementById('album-img')
     bar.style.transition = 'none';
     bar.style.width = '100%';
+    img.style.transition = 'none';
+    img.style.filter = 'blur(24px)';
 
     timerInterval = setInterval(() => {
       timeLeft--;
       const pct = Math.max(0, (timeLeft / timeLimit) * 100);
+      const elapsedFraction = 1 - (timeLeft / timeLimit)
       bar.style.transition = 'width 1s linear';
       bar.style.width = pct + '%';
 
+      img.style.transition = 'filter is linear'
+      img.style.filter = `blur(${24 * (1 - elapsedFraction)}px)`
       if (pct < 30) bar.style.background = 'var(--red)';
       else if (pct < 60) bar.style.background = 'var(--amber)';
       else bar.style.background = 'var(--green)';

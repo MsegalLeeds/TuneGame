@@ -21,7 +21,7 @@ app.config['SESSION_COOKIE_SECURE'] = False
 CORS(app, supports_credentials=True, origins=["http://localhost:63342", "http://localhost:8000"])
 
 SCORES_FILE = "scores.json"
-TIME_LIMIT = 120        # seconds to answer before time's up
+TIME_LIMIT = 30        # seconds to answer before time's up
 MAX_LIVES = 3          # wrong answers before game over
 CLIP_START_MS = 30000  # seek to 30 seconds for clip mode
 
@@ -168,6 +168,8 @@ def post_answer():
     timed_out = not check_time_limit()
     guess = data.get("guess", "")
     game = get_game()
+    question_time = session.get("question_time")
+    elapsed = time.time() - question_time if question_time else None
 
     if timed_out:
         is_correct = False
@@ -176,6 +178,9 @@ def post_answer():
         is_correct = game.is_close_match(guess, correct)
         result_message = "Correct!" if is_correct else "Wrong!"
 
+    game.questions_asked += 1
+    game.award_points(is_correct, time_taken=elapsed, time_limit=TIME_LIMIT)
+    save_game(game)
     # update lives
     lives = session.get("lives", MAX_LIVES)
     if not is_correct:
@@ -195,6 +200,7 @@ def post_answer():
         "correct_answer": correct,
         "message": result_message,
         "timed_out": timed_out,
+        "time_taken": round(elapsed, 1) if elapsed else None,
         "score": game.score,
         "streak": game.streak,
         "lives": lives,
