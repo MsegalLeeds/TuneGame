@@ -35,7 +35,7 @@ Terminal 2, from the repository root:
 
 Open `http://localhost:8000`.
 
-The frontend calls Flask at `http://localhost:5000`. Keep the hostname consistent (`localhost` vs `127.0.0.1`) when testing browser sessions.
+The frontend calls Flask at `http://127.0.0.1:5000`. The local server is configured to allow the frontend at `http://localhost:8000` by default.
 
 ## Run tests
 
