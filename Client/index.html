@@ -638,7 +638,7 @@
 </div>
 
 <script>
-  const API = 'http://localhost:5000';
+  const API = 'http://127.0.0.1:5000';
 
   let mode = 'mc';
   let clipMode = true;
@@ -807,8 +807,7 @@
       sub.textContent = `correct answer: ${data.correct_answer}`;
     } else if (data.correct) {
       banner.classList.add('show', 'correct');
-      title.textContent = `correct! +${data.score - currentScore + (data.score - currentScore)}pts`;
-      title.textContent = 'correct!';
+      title.textContent = `correct! +${data.points_earned}pts`;
       sub.textContent = `score: ${data.score} · streak: ${data.streak}`;
     } else {
       banner.classList.add('show', 'wrong');
@@ -915,11 +914,16 @@
       scores.forEach((s, i) => {
         const row = document.createElement('div');
         row.className = 'lb-row' + (s.name === document.getElementById('save-name').value ? ' highlight' : '');
-        row.innerHTML = `
-          <div class="lb-rank ${i === 0 ? 'gold' : ''}">${i + 1}</div>
-          <div class="lb-name">${s.name}</div>
-          <div class="lb-pts ${i > 0 ? 'dim' : ''}">${s.score}pts</div>
-        `;
+        const rank = document.createElement('div');
+        rank.className = `lb-rank ${i === 0 ? 'gold' : ''}`;
+        rank.textContent = i + 1;
+        const name = document.createElement('div');
+        name.className = 'lb-name';
+        name.textContent = s.name;
+        const points = document.createElement('div');
+        points.className = `lb-pts ${i > 0 ? 'dim' : ''}`;
+        points.textContent = `${s.score}pts`;
+        row.append(rank, name, points);
         list.appendChild(row);
       });
     } catch (e) {}
