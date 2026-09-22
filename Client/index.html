@@ -743,7 +743,11 @@
       const btn = document.createElement('button');
       btn.className = 'choice-btn fade-in';
       btn.style.animationDelay = `${i * 0.05}s`;
-      btn.innerHTML = `<span class="choice-key">${labels[i]}</span>${choice}`;
+      btn.innerHTML = `<span class="choice-key">${labels[i]}</span>`;
+      const choiceText = document.createElement("span");
+      choiceText.textContent = choice;
+      btn.appendChild(choiceText);
+      btn.dataset.choice = choice;
       btn.onclick = () => submitChoice(choice, btn, choices);
       wrap.appendChild(btn);
     });
@@ -762,9 +766,9 @@
 
     btn.classList.add(data.correct ? 'correct' : 'wrong');
 
-    if (!data.correct) {
+    if (!data.correct && data.correct_answer) {
       document.querySelectorAll('.choice-btn').forEach(b => {
-        if (b.textContent.trim().includes(data.correct_answer)) {
+        if (b.dataset.choice === data.correct_answer) {
           b.classList.add('correct');
         }
       });
