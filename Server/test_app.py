@@ -89,6 +89,7 @@ def test_web_correct_multiple_choice(monkeypatch):
     assert payload["points_earned"] == 10
     assert payload["score"] == 10
     assert payload["lives"] == 3
+    assert payload["correct_answer"] == "A Night at the Opera"
 
 def test_web_rejects_answer_without_question():
     import app as app_module
