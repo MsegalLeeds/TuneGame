@@ -19,7 +19,7 @@ SCORES_FILE = os.path.join(BASE_DIR, "scores.json")
 TIME_LIMIT = 120
 MAX_LIVES = 3
 CLIP_START_MS = 30000
-FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:8000")
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY") or "local-development-secret"
