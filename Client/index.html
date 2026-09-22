@@ -642,7 +642,7 @@
 
   let mode = 'mc';
   let clipMode = true;
-  let timeLimit = 15;
+  let timeLimit = 120;
   let timerInterval = null;
   let timeLeft = 15;
   let answered = false;
@@ -667,20 +667,27 @@
   }
 
   async function api(path, opts = {}) {
-    const res = await fetch(API + path, {
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      ...opts,
-    });
-    return res.json();
+  const res = await fetch(API + path, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.error || `HTTP ${res.status}`);
   }
+
+  return data;
+}
 
   async function startGame() {
     document.getElementById('start-error').textContent = '';
     try {
       const data = await api('/new-game', { method: 'POST' });
       if (!data.ok) throw new Error('Failed to start game');
-      timeLimit = data.time_limit || 15;
+      timeLimit = data.time_limit || 120;
       showScreen('screen-game');
       await loadQuestion();
     } catch (e) {
@@ -751,27 +758,35 @@
 
   async function submitChoice(guess, btn, choices) {
     if (answered) return;
+
     answered = true;
     clearTimer();
     disableChoices();
 
-    const data = await api('/answer', {
-      method: 'POST',
-      body: JSON.stringify({ guess }),
-    });
+    try {
+      const data = await api('/answer', {
+        method: 'POST',
+        body: JSON.stringify({ guess }),
+     });
 
-    btn.classList.add(data.correct ? 'correct' : 'wrong');
+      btn.classList.add(data.correct ? 'correct' : 'wrong');
 
-    if (!data.correct) {
-      document.querySelectorAll('.choice-btn').forEach(b => {
-        if (b.textContent.trim().includes(data.correct_answer)) {
-          b.classList.add('correct');
-        }
-      });
-    }
+      if (!data.correct && data.correct_answer) {
+        document.querySelectorAll('.choice-btn').forEach(b => {
+          if (b.textContent.trim().includes(data.correct_answer)) {
+            b.classList.add('correct');
+          }
+        });
+      }
 
     showResult(data);
+  } catch (e) {
+    console.error('Answer request failed:', e);
+    document.getElementById('game-error').textContent =
+      `Error submitting answer: ${e.message}`;
+    answered = false;
   }
+}
 
   async function submitTyped() {
     if (answered) return;
