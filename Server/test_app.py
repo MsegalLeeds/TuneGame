@@ -91,6 +91,8 @@ class TestNewGame:
 class TestQuestion:
     def test_question_requires_active_game(self, client):
         test_client, _ = client
+        with test_client.session_transaction() as session:
+            session["lives"] = 0
         response = test_client.get("/question")
         assert response.status_code == 400
         assert "Game over" in response.get_json()["error"]
